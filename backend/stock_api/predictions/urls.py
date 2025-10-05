@@ -1,7 +1,8 @@
 from django.urls import path
-from .views import PredictView, LatestPredictionView
+from .views import ChartDataAPI, ModelEvaluationAPI, PredictionAPI
 
 urlpatterns = [
-    path('predict/', PredictView.as_view(), name='make-prediction'),
-    path('predictions/latest/', LatestPredictionView.as_view(), name='latest-prediction'),
+    path('predict/', PredictionAPI.as_view(), name='predict-price'),
+    path('chart/<str:period>/', ChartDataAPI.as_view(), name='chart-data'),
+    path('evaluate/', ModelEvaluationAPI.as_view(), name='evaluate-model'),
 ]
