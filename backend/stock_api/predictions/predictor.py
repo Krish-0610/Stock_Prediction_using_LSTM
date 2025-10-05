@@ -103,7 +103,7 @@ def predict_stock_prices(ticker="^NSEI", days=100):
     dummy_array[:, 1] = y_predicted_scaled[:, 1] # Predicted 'Open'
 
     predicted_prices = scaler.inverse_transform(dummy_array)
-
+    print(predicted_prices)
     return {
         "predicted_open": float(predicted_prices[0, 1]),
         "predicted_close": float(predicted_prices[0, 0])
@@ -167,10 +167,10 @@ def get_model_evaluation(ticker="^NSEI", days=100):
     
     r2_close = r2_score(y_test[:, 0], y_predicted[:, 0])
     r2_open = r2_score(y_test[:, 1], y_predicted[:, 1])
-
+    print(evaluation)
     return {
-        "r2_score_close": r2_close,
-        "r2_score_open": r2_open
+        "r2_score_close": r2_close*100,
+        "r2_score_open": r2_open*100
     }
 
 if __name__ == '__main__':

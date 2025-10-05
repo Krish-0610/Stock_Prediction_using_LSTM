@@ -11,12 +11,28 @@ from .predictor import predict_stock_prices, get_model_evaluation
 class PredictionAPI(APIView):
     """
     API to get the next day's predicted stock prices (Open and Close).
+    Accepts a 'ticker' query parameter.
     """
 
     def get(self, request, *args, **kwargs):
-        predictions = predict_stock_prices()
+        ticker = request.query_params.get('ticker', '^NSEI')
+        predictions = predict_stock_prices(ticker=ticker)
         if "error" in predictions:
             return Response(predictions, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Fetch latest data for current price and change
+        try:
+            latest_data = yf.download(ticker, period="2d", interval="1d")
+            if not latest_data.empty and len(latest_data) >= 2:
+                current_price = latest_data['Close'].iloc[-1]
+                previous_price = latest_data['Close'].iloc[-2]
+                change = ((current_price - previous_price) / previous_price) * 100
+                predictions['current_price'] = current_price
+                predictions['change'] = change
+        except Exception as e:
+            # If fetching latest data fails, proceed without it
+            print(f"Could not fetch latest data for ticker {ticker}: {e}")
+
         return Response(predictions, status=status.HTTP_200_OK)
 
 
@@ -27,7 +43,7 @@ class ChartDataAPI(APIView):
     """
 
     def get(self, request, period, *args, **kwargs):
-        ticker = "^NSEI"
+        ticker = request.query_params.get('ticker', '^NSEI')
         valid_periods = ["1d", "5d", "1m", "6m", "1y"]
 
         if period not in valid_periods:
@@ -79,7 +95,8 @@ class ModelEvaluationAPI(APIView):
     """
 
     def get(self, request, *args, **kwargs):
-        evaluation = get_model_evaluation()
+        ticker = request.query_params.get('ticker', '^NSEI')
+        evaluation = get_model_evaluation(ticker=ticker)
         if "error" in evaluation:
             return Response(evaluation, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response(evaluation, status=status.HTTP_200_OK)

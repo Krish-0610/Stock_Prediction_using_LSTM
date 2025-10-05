@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Price Prediction</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Stock Price Prediction</h1>
+        
+        <div class="controls">
+            <input type="text" id="tickerInput" placeholder="Enter Stock Ticker (e.g., AAPL)" value="^NSEI">
+            <button id="predictBtn">Predict Next Day</button>
+        </div>
+
+        <div class="period-selector">
+            <button class="period-btn" data-period="1d">1D</button>
+            <button class="period-btn" data-period="5d">5D</button>
+            <button class="period-btn active" data-period="1m">1M</button>
+            <button class="period-btn" data-period="6m">6M</button>
+            <button class="period-btn" data-period="1y">1Y</button>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="stockChart"></canvas>
+        </div>
+
+        <div class="info-cards">
+            <div class="card" id="predictionCard">
+                <h2>Next Day's Prediction</h2>
+                <p id="predictionText">-</p>
+            </div>
+            <div class="card" id="evaluationCard">
+                <h2>Model Evaluation (R²)</h2>
+                <p id="evaluationText">-</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
