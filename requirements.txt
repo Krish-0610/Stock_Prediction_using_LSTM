@@ -1,0 +1,11 @@
+numpy
+pandas
+matplotlib
+yfinance
+scikit-learn
+tensorflow
+pandas-ta
+investpy
+joblib
+django
+djangorestframework
