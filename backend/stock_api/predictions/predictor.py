@@ -159,22 +159,21 @@ def get_model_evaluation(ticker="^NSEI", days=100):
     for i in range(time_step, input_data.shape[0]):
         x_test.append(input_data[i-time_step:i])
         y_test.append(input_data[i, [close_index, open_index]])
-
     x_test, y_test = np.array(x_test), np.array(y_test)
 
-    x_test, y_test = np.array(x_test), np.array(y_test)
     y_predicted = model.predict(x_test)
     
     r2_close = r2_score(y_test[:, 0], y_predicted[:, 0])
     r2_open = r2_score(y_test[:, 1], y_predicted[:, 1])
-    print(evaluation)
-    return {
-        "r2_score_close": r2_close*100,
-        "r2_score_open": r2_open*100
+    
+    evaluation = {
+        "r2_score_close": r2_close,
+        "r2_score_open": r2_open
     }
+    print(evaluation)
+    return evaluation
 
 if __name__ == '__main__':
     predictions = predict_stock_prices()
     print(predictions)
     evaluation = get_model_evaluation()
-    print(evaluation)

@@ -71,10 +71,15 @@
       <!-- Right: Prediction Results (only backed by API) -->
       <aside class="col-4 stack" style="gap:12px">
         <section class="card stack">
-          <div class="muted">Price Prediction</div>
-          <div class="value" id="predictedPrice">--</div>
-          <div class="muted" id="predictedNote">Next trading day</div>
-          <div class="muted" id="predictedDelta">--</div>
+          <div class="muted">Opening Price Prediction</div>
+          <div class="value" id="predictedOpenPrice">--</div>
+          <div class="muted" id="predictedOpenDelta">--</div>
+        </section>
+
+        <section class="card stack">
+          <div class="muted">Closing Price Prediction</div>
+          <div class="value" id="predictedClosePrice">--</div>
+          <div class="muted" id="predictedCloseDelta">--</div>
           <button id="btnGenerate" class="btn">Generate New Prediction</button>
         </section>
 
@@ -208,13 +213,23 @@
       if (!data) return;
       const openP = data.predicted_open ?? data.open_prediction ?? data.open ?? data.Open;
       const closeP = data.predicted_close ?? data.close_prediction ?? data.close ?? data.Close;
-      const price = closeP ?? openP ?? null;
-      document.getElementById('predictedPrice').textContent = price != null ? `₹${fmt(price)}` : '--';
-      if (price != null && state.lastClose != null) {
-        const delta = price - state.lastClose;
-        const pct = (delta / state.lastClose) * 100;
-        const sign = delta >= 0 ? '+' : '';
-        document.getElementById('predictedDelta').textContent = `${sign}${fmt(delta)} (${sign}${fmt(pct)}%)`;
+      
+      // Update Opening Price Prediction
+      document.getElementById('predictedOpenPrice').textContent = openP != null ? `₹${fmt(openP)}` : '--';
+      if (openP != null && state.lastClose != null) {
+        const deltaOpen = openP - state.lastClose;
+        const pctOpen = (deltaOpen / state.lastClose) * 100;
+        const signOpen = deltaOpen >= 0 ? '+' : '';
+        document.getElementById('predictedOpenDelta').textContent = `${signOpen}${fmt(deltaOpen)} (${signOpen}${fmt(pctOpen)}%) from last close`;
+      }
+      
+      // Update Closing Price Prediction
+      document.getElementById('predictedClosePrice').textContent = closeP != null ? `₹${fmt(closeP)}` : '--';
+      if (closeP != null && state.lastClose != null) {
+        const deltaClose = closeP - state.lastClose;
+        const pctClose = (deltaClose / state.lastClose) * 100;
+        const signClose = deltaClose >= 0 ? '+' : '';
+        document.getElementById('predictedCloseDelta').textContent = `${signClose}${fmt(deltaClose)} (${signClose}${fmt(pctClose)}%) from last close`;
       }
     }
 
@@ -238,8 +253,10 @@
       setActivePeriodPill();
       updateHeaderMeta();
       // reset UI to avoid stale data while fetching
-      document.getElementById('predictedPrice').textContent = '--';
-      document.getElementById('predictedDelta').textContent = '--';
+      document.getElementById('predictedOpenPrice').textContent = '--';
+      document.getElementById('predictedOpenDelta').textContent = '--';
+      document.getElementById('predictedClosePrice').textContent = '--';
+      document.getElementById('predictedCloseDelta').textContent = '--';
       document.getElementById('r2OpenPct').textContent = '--';
       document.getElementById('r2ClosePct').textContent = '--';
       document.getElementById('r2OpenBar').style.width = '0%';
