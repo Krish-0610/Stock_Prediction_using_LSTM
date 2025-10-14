@@ -1,293 +1,554 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Stock Prediction Dashboard</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <style>
-    :root{ --bg:#ffffff; --text:#111111; --sub:#555555; --muted:#777777; --card:#f7f7f7; --border:#e2e2e2; --accent:#000000; --accent-weak:#d0d0d0 }
-    *{ box-sizing:border-box }
-    body{ font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:0; padding:24px; background:var(--bg); color:var(--text) }
-    .container{ max-width:1100px; margin:20px auto }
-    .card{ background:var(--card); border:1px solid var(--border); border-radius:12px; padding:18px }
-    header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:18px }
-    h1{ font-size:22px; margin:0; letter-spacing:.3px; color:var(--text) }
-    .grid{ display:grid; grid-template-columns: repeat(12, 1fr); gap:16px }
-    .col-12{ grid-column: span 12 }
-    .col-8{ grid-column: span 8 }
-    .col-4{ grid-column: span 4 }
-    .pillbar{ display:inline-flex; background:#fff; padding:6px; border-radius:999px; border:1px solid var(--border) }
-    .pillbar button{ border:0; background:transparent; color:var(--sub); padding:8px 14px; border-radius:999px; cursor:pointer; font-weight:600 }
-    .pillbar button.active{ background:var(--accent); color:#fff }
-    .muted{ color:var(--muted); font-size:14px }
-    .value{ font-size:28px; font-weight:700; color:var(--text) }
-    .btn{ display:inline-flex; align-items:center; gap:8px; border:1px solid var(--border); background:#fff; color:var(--text); padding:10px 14px; border-radius:8px; cursor:pointer; font-weight:600 }
-    .btn:disabled{ opacity:.6; cursor:not-allowed }
-    .stack{ display:grid; gap:10px }
-    .row{ display:flex; gap:12px; align-items:center; flex-wrap:wrap }
-    a{ color:var(--text); text-decoration:none }
-    /* date picker removed */
-    .bar{ height:8px; background:#fff; border:1px solid var(--border); border-radius:999px; overflow:hidden }
-    .bar > .fill{ height:100%; width:0; background:var(--accent) }
-    .kpi{ background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; min-width:180px }
-    .topbar{ position:sticky; top:0; background:#fff; border-bottom:1px solid var(--border); padding:12px 24px; z-index:10 }
-    .brand{ font-weight:700; color:var(--text); letter-spacing:.3px }
-  </style>
-</head>
-<body>
-  <nav class="topbar"><div class="brand">Stock Prediction using LSTM</div></nav>
-  <div class="container stack" style="gap:16px">
-    <header class="row" style="justify-content: space-between; align-items: flex-end">
-      <div>
-        <h1>NIFTY 50 - Index</h1>
-        <div class="muted" id="headerMeta">Last 30 Days • Updated: --</div>
-      </div>
-      <div class="row">
-        <div class="pillbar" id="periodBar">
-          <button data-period="1d" class="active">1D</button>
-          <button data-period="5d">5D</button>
-          <button data-period="1m">1M</button>
-          <button data-period="6m">6M</button>
-          <button data-period="1y">1Y</button>
-        </div>
-      </div>
-    </header>
-
-    <div class="grid">
-      <!-- Left: Chart -->
-      <section class="card col-8">
-        <div class="muted" style="margin-bottom:8px">Interactive Price Chart</div>
-        <canvas id="priceChart" height="200"></canvas>
-        <div class="row" style="justify-content: space-between; margin-top: 8px">
-          <div class="muted" id="chartMeta">Period: 1d</div>
-          <div class="row"><span id="chartStatus" class="muted"></span></div>
-        </div>
-      </section>
-
-      <!-- Right: Prediction Results (only backed by API) -->
-      <aside class="col-4 stack" style="gap:12px">
-        <section class="card stack">
-          <div class="muted">Opening Price Prediction</div>
-          <div class="value" id="predictedOpenPrice">--</div>
-          <div class="muted" id="predictedOpenDelta">--</div>
-        </section>
-
-        <section class="card stack">
-          <div class="muted">Closing Price Prediction</div>
-          <div class="value" id="predictedClosePrice">--</div>
-          <div class="muted" id="predictedCloseDelta">--</div>
-          <button id="btnGenerate" class="btn">Generate New Prediction</button>
-        </section>
-
-        <section class="card stack">
-          <div class="muted">Model Accuracy</div>
-          <div>
-            <div class="row" style="justify-content: space-between"><span>Open</span><span id="r2OpenPct">--</span></div>
-            <div class="bar"><div id="r2OpenBar" class="fill"></div></div>
-          </div>
-          <div>
-            <div class="row" style="justify-content: space-between"><span>Close</span><span id="r2ClosePct">--</span></div>
-            <div class="bar"><div id="r2CloseBar" class="fill"></div></div>
-          </div>
-        </section>
-      </aside>
-
-      <!-- KPI Row -->
-      <section class="col-12 row" style="gap:16px;margin-top:6px">
-        <div class="kpi" style="flex:1">
-          <div class="muted">Current Price</div>
-          <div class="value" id="kpiCurrent">--</div>
-        </div>
-        <div class="kpi" style="flex:1">
-          <div class="muted">Daily Change</div>
-          <div class="value" id="kpiChange">--</div>
-        </div>
-      </section>
-    </div>
-  </div>
-
-  <script>
-    const state = { period: '1d', chart: null, lastClose: null, prevClose: null, controllers: { chart:null, predict:null, eval:null }, debounceTimer:null };
-
-    function fmt(n) { try { return Number(n).toLocaleString(undefined, {maximumFractionDigits: 2}); } catch { return String(n); } }
-    function setStatus(el, text) { el.textContent = text; if (text) setTimeout(() => el.textContent = '', 1500); }
-    function debounce(fn, delay=200) { return (...args) => { clearTimeout(state.debounceTimer); state.debounceTimer = setTimeout(()=>fn(...args), delay); }; }
-    // date helpers removed (date selection not used)
-
-    function readStateFromURL() {
-      const p = new URLSearchParams(location.search);
-      const qPeriod = p.get('period');
-      if (['1d','5d','1m','6m','1y'].includes(qPeriod || '')) state.period = qPeriod;
-    }
-    function writeStateToURL() {
-      const p = new URLSearchParams(location.search);
-      p.set('period', state.period);
-      history.replaceState(null, '', `${location.pathname}?${p.toString()}`);
-    }
-
-    async function fetchJSON(url, statusEl, signal) {
-      try {
-        if (statusEl) setStatus(statusEl, 'Loading...');
-        const res = await fetch(url, { signal, cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
-        const data = await res.json();
-        if (!res.ok) throw new Error((data && data.error) || res.statusText);
-        if (statusEl) setStatus(statusEl, '');
-        return data;
-      } catch (e) {
-        if (e.name === 'AbortError') { if (statusEl) setStatus(statusEl, ''); return Promise.reject(e); }
-        if (statusEl) setStatus(statusEl, `Error: ${e.message}`);
-        throw e;
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stock Prediction Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --text: #111111;
+        --sub: #555555;
+        --muted: #777777;
+        --card: #f7f7f7;
+        --border: #e2e2e2;
+        --accent: #000000;
+        --accent-weak: #d0d0d0;
       }
-    }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial,
+          sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .container {
+        max-width: 1100px;
+        margin: 20px auto;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 18px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 18px;
+      }
+      h1 {
+        font-size: 22px;
+        margin: 0;
+        letter-spacing: 0.3px;
+        color: var(--text);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap: 16px;
+      }
+      .col-12 {
+        grid-column: span 12;
+      }
+      .col-8 {
+        grid-column: span 8;
+      }
+      .col-4 {
+        grid-column: span 4;
+      }
+      .pillbar {
+        display: inline-flex;
+        background: #fff;
+        padding: 6px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+      }
+      .pillbar button {
+        border: 0;
+        background: transparent;
+        color: var(--sub);
+        padding: 8px 14px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .pillbar button.active {
+        background: var(--accent);
+        color: #fff;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .value {
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--text);
+        padding: 10px 14px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .stack {
+        display: grid;
+        gap: 10px;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      a {
+        color: var(--text);
+        text-decoration: none;
+      }
+      /* date picker removed */
+      .bar {
+        height: 8px;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .bar > .fill {
+        height: 100%;
+        width: 0;
+        background: var(--accent);
+      }
+      .kpi {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        min-width: 180px;
+      }
+      .topbar {
+        position: sticky;
+        top: 0;
+        background: #fff;
+        border-bottom: 1px solid var(--border);
+        padding: 12px 24px;
+        z-index: 10;
+      }
+      .brand {
+        font-weight: 700;
+        color: var(--text);
+        letter-spacing: 0.3px;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="topbar">
+      <div class="brand">Stock Prediction using LSTM</div>
+    </nav>
+    <div class="container stack" style="gap: 16px">
+      <header
+        class="row"
+        style="justify-content: space-between; align-items: flex-end"
+      >
+        <div>
+          <h1>NIFTY 50 - Index</h1>
+          <div class="muted" id="headerMeta">Last 30 Days • Updated: --</div>
+        </div>
+        <div class="row">
+          <div class="pillbar" id="periodBar">
+            <button data-period="1d" class="active">1D</button>
+            <button data-period="5d">5D</button>
+            <button data-period="1m">1M</button>
+            <button data-period="6m">6M</button>
+            <button data-period="1y">1Y</button>
+          </div>
+        </div>
+      </header>
 
-    function updateHeaderMeta() {
-      const ranges = { '1d': 'Last 1 Day', '5d': 'Last 5 Days', '1m': 'Last 30 Days', '6m': 'Last 6 Months', '1y': 'Last 1 Year' };
-      document.getElementById('headerMeta').textContent = `${ranges[state.period]} • Updated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`;
-      document.getElementById('chartMeta').textContent = `Period: ${state.period}`;
-    }
+      <div class="grid">
+        <!-- Left: Chart -->
+        <section class="card col-8">
+          <div class="muted" style="margin-bottom: 8px">
+            Interactive Price Chart
+          </div>
+          <canvas id="priceChart" height="200"></canvas>
+          <div
+            class="row"
+            style="justify-content: space-between; margin-top: 8px"
+          >
+            <div class="muted" id="chartMeta">Period: 1d</div>
+            <div class="row"><span id="chartStatus" class="muted"></span></div>
+          </div>
+        </section>
 
-    function setActivePeriodPill() {
-      document.querySelectorAll('#periodBar button').forEach(b => b.classList.toggle('active', b.dataset.period === state.period));
-    }
+        <!-- Right: Prediction Results (only backed by API) -->
+        <aside class="col-4 stack" style="gap: 12px">
+          <section class="card stack">
+            <div class="muted">Opening Price Prediction</div>
+            <div class="value" id="predictedOpenPrice">--</div>
+            <div class="muted" id="predictedOpenDelta">--</div>
+          </section>
 
-    function renderChart(rows) {
-      const labels = rows.map(r => r.Date || r.date || r.time || r.timestamp);
-      const values = rows.map(r => r.Close ?? r.close ?? r.price ?? r.value);
-      const ctx = document.getElementById('priceChart').getContext('2d');
-      if (state.chart) state.chart.destroy();
-      state.chart = new Chart(ctx, {
-        type: 'line',
-        data: { labels, datasets: [{ label: 'Close', data: values, tension: 0.25, borderColor: '#000000', borderWidth: 2, pointRadius: 0, hitRadius: 6, fill: true, backgroundColor: 'rgba(0,0,0,0.06)' }] },
-        options: {
-          responsive: true,
-          interaction: { mode: 'index', intersect: false },
-          scales: {
-            x: { ticks: { color: '#444444', maxRotation: 0, autoSkip: true }, grid: { color: '#ececec' } },
-            y: { ticks: { color: '#444444', callback: (v)=> '₹'+Number(v).toLocaleString() }, grid: { color: '#f0f0f0' } }
+          <section class="card stack">
+            <div class="muted">Closing Price Prediction</div>
+            <div class="value" id="predictedClosePrice">--</div>
+            <div class="muted" id="predictedCloseDelta">--</div>
+            <button id="btnGenerate" class="btn">
+              Generate New Prediction
+            </button>
+          </section>
+
+          <section class="card stack">
+            <div class="muted">Model Accuracy</div>
+            <div>
+              <div class="row" style="justify-content: space-between">
+                <span>Open</span><span id="r2OpenPct">--</span>
+              </div>
+              <div class="bar"><div id="r2OpenBar" class="fill"></div></div>
+            </div>
+            <div>
+              <div class="row" style="justify-content: space-between">
+                <span>Close</span><span id="r2ClosePct">--</span>
+              </div>
+              <div class="bar"><div id="r2CloseBar" class="fill"></div></div>
+            </div>
+          </section>
+        </aside>
+
+        <!-- KPI Row -->
+        <section class="col-12 row" style="gap: 16px; margin-top: 6px">
+          <div class="kpi" style="flex: 1">
+            <div class="muted">Current Price</div>
+            <div class="value" id="kpiCurrent">--</div>
+          </div>
+          <div class="kpi" style="flex: 1">
+            <div class="muted">Daily Change</div>
+            <div class="value" id="kpiChange">--</div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      const state = {
+        period: "1d",
+        chart: null,
+        lastClose: null,
+        prevClose: null,
+        controllers: { chart: null, predict: null, eval: null },
+        debounceTimer: null,
+      };
+
+      function fmt(n) {
+        try {
+          return Number(n).toLocaleString(undefined, {
+            maximumFractionDigits: 2,
+          });
+        } catch {
+          return String(n);
+        }
+      }
+      function setStatus(el, text) {
+        el.textContent = text;
+        if (text) setTimeout(() => (el.textContent = ""), 1500);
+      }
+      function debounce(fn, delay = 200) {
+        return (...args) => {
+          clearTimeout(state.debounceTimer);
+          state.debounceTimer = setTimeout(() => fn(...args), delay);
+        };
+      }
+      // date helpers removed (date selection not used)
+
+      function readStateFromURL() {
+        const p = new URLSearchParams(location.search);
+        const qPeriod = p.get("period");
+        if (["1d", "5d", "1m", "6m", "1y"].includes(qPeriod || ""))
+          state.period = qPeriod;
+      }
+      function writeStateToURL() {
+        const p = new URLSearchParams(location.search);
+        p.set("period", state.period);
+        history.replaceState(null, "", `${location.pathname}?${p.toString()}`);
+      }
+
+      async function fetchJSON(url, statusEl, signal) {
+        try {
+          if (statusEl) setStatus(statusEl, "Loading...");
+          const res = await fetch(url, {
+            signal,
+            cache: "no-store",
+            headers: { "Cache-Control": "no-cache" },
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error((data && data.error) || res.statusText);
+          if (statusEl) setStatus(statusEl, "");
+          return data;
+        } catch (e) {
+          if (e.name === "AbortError") {
+            if (statusEl) setStatus(statusEl, "");
+            return Promise.reject(e);
+          }
+          if (statusEl) setStatus(statusEl, `Error: ${e.message}`);
+          throw e;
+        }
+      }
+
+      function updateHeaderMeta() {
+        const ranges = {
+          "1d": "Last 1 Day",
+          "5d": "Last 5 Days",
+          "1m": "Last 30 Days",
+          "6m": "Last 6 Months",
+          "1y": "Last 1 Year",
+        };
+        document.getElementById("headerMeta").textContent = `${
+          ranges[state.period]
+        } • Updated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`;
+        document.getElementById(
+          "chartMeta"
+        ).textContent = `Period: ${state.period}`;
+      }
+
+      function setActivePeriodPill() {
+        document
+          .querySelectorAll("#periodBar button")
+          .forEach((b) =>
+            b.classList.toggle("active", b.dataset.period === state.period)
+          );
+      }
+
+      function renderChart(rows) {
+        const labels = rows.map(
+          (r) => r.Date || r.date || r.time || r.timestamp
+        );
+        const values = rows.map(
+          (r) => r.Close ?? r.close ?? r.price ?? r.value
+        );
+        const ctx = document.getElementById("priceChart").getContext("2d");
+        if (state.chart) state.chart.destroy();
+        state.chart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels,
+            datasets: [
+              {
+                label: "Close",
+                data: values,
+                tension: 0.25,
+                borderColor: "#000000",
+                borderWidth: 2,
+                pointRadius: 0,
+                hitRadius: 6,
+                fill: true,
+                backgroundColor: "rgba(0,0,0,0.06)",
+              },
+            ],
           },
-          plugins: {
-            legend: { labels: { color: '#333333' } },
-            tooltip: {
-              callbacks: {
-                label: (ctx)=> ` Close: ₹${Number(ctx.parsed.y).toLocaleString()}`
-              }
-            }
+          options: {
+            responsive: true,
+            interaction: { mode: "index", intersect: false },
+            scales: {
+              x: {
+                ticks: { color: "#444444", maxRotation: 0, autoSkip: true },
+                grid: { color: "#ececec" },
+              },
+              y: {
+                ticks: {
+                  color: "#444444",
+                  callback: (v) => "₹" + Number(v).toLocaleString(),
+                },
+                grid: { color: "#f0f0f0" },
+              },
+            },
+            plugins: {
+              legend: { labels: { color: "#333333" } },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) =>
+                    ` Close: ₹${Number(ctx.parsed.y).toLocaleString()}`,
+                },
+              },
+            },
+          },
+        });
+        // update KPIs using last two closes
+        if (values.length) {
+          state.lastClose = values[values.length - 1];
+          state.prevClose =
+            values.length > 1 ? values[values.length - 2] : null;
+          document.getElementById("kpiCurrent").textContent =
+            state.lastClose != null ? `₹${fmt(state.lastClose)}` : "--";
+          if (state.prevClose != null) {
+            const delta = state.lastClose - state.prevClose;
+            const pct = (delta / state.prevClose) * 100;
+            const sign = delta >= 0 ? "+" : "";
+            document.getElementById("kpiChange").textContent = `${sign}${fmt(
+              delta
+            )} (${sign}${fmt(pct)}%)`;
+          } else {
+            document.getElementById("kpiChange").textContent = "--";
           }
         }
-      });
-      // update KPIs using last two closes
-      if (values.length) {
-        state.lastClose = values[values.length - 1];
-        state.prevClose = values.length > 1 ? values[values.length - 2] : null;
-        document.getElementById('kpiCurrent').textContent = state.lastClose != null ? `₹${fmt(state.lastClose)}` : '--';
-        if (state.prevClose != null) {
-          const delta = state.lastClose - state.prevClose;
-          const pct = (delta / state.prevClose) * 100;
-          const sign = delta >= 0 ? '+' : '';
-          document.getElementById('kpiChange').textContent = `${sign}${fmt(delta)} (${sign}${fmt(pct)}%)`;
-        } else {
-          document.getElementById('kpiChange').textContent = '--';
+      }
+
+      async function loadChart() {
+        const statusEl = document.getElementById("chartStatus");
+        if (state.controllers.chart) state.controllers.chart.abort();
+        const ctrl = new AbortController();
+        state.controllers.chart = ctrl;
+        const all = await fetchJSON(
+          `/api/chart/${state.period}/`,
+          statusEl,
+          ctrl.signal
+        ).catch((err) => {
+          if (err.name === "AbortError") return null;
+          else throw err;
+        });
+        if (!all) return; // aborted
+        renderChart(all);
+      }
+
+      async function loadPrediction() {
+        if (state.controllers.predict) state.controllers.predict.abort();
+        const ctrl = new AbortController();
+        state.controllers.predict = ctrl;
+        const data = await fetchJSON("/api/predict/", null, ctrl.signal).catch(
+          (err) => {
+            if (err.name === "AbortError") return null;
+            else throw err;
+          }
+        );
+        if (!data) return;
+        const openP =
+          data.predicted_open ?? data.open_prediction ?? data.open ?? data.Open;
+        const closeP =
+          data.predicted_close ??
+          data.close_prediction ??
+          data.close ??
+          data.Close;
+
+        // Update Opening Price Prediction
+        document.getElementById("predictedOpenPrice").textContent =
+          openP != null ? `₹${fmt(openP)}` : "--";
+        if (openP != null && state.lastClose != null) {
+          const deltaOpen = openP - state.lastClose;
+          const pctOpen = (deltaOpen / state.lastClose) * 100;
+          const signOpen = deltaOpen >= 0 ? "+" : "";
+          document.getElementById(
+            "predictedOpenDelta"
+          ).textContent = `${signOpen}${fmt(deltaOpen)} (${signOpen}${fmt(
+            pctOpen
+          )}%) from last close`;
+        }
+
+        // Update Closing Price Prediction
+        document.getElementById("predictedClosePrice").textContent =
+          closeP != null ? `₹${fmt(closeP)}` : "--";
+        if (closeP != null && state.lastClose != null) {
+          const deltaClose = closeP - state.lastClose;
+          const pctClose = (deltaClose / state.lastClose) * 100;
+          const signClose = deltaClose >= 0 ? "+" : "";
+          document.getElementById(
+            "predictedCloseDelta"
+          ).textContent = `${signClose}${fmt(deltaClose)} (${signClose}${fmt(
+            pctClose
+          )}%) from last close`;
         }
       }
-    }
 
-    async function loadChart() {
-      const statusEl = document.getElementById('chartStatus');
-      if (state.controllers.chart) state.controllers.chart.abort();
-      const ctrl = new AbortController();
-      state.controllers.chart = ctrl;
-      const all = await fetchJSON(`/api/chart/${state.period}/`, statusEl, ctrl.signal).catch(err=>{ if (err.name==='AbortError') return null; else throw err; });
-      if (!all) return; // aborted
-      renderChart(all);
-    }
-
-    async function loadPrediction() {
-      if (state.controllers.predict) state.controllers.predict.abort();
-      const ctrl = new AbortController();
-      state.controllers.predict = ctrl;
-      const data = await fetchJSON('/api/predict/', null, ctrl.signal).catch(err=>{ if (err.name==='AbortError') return null; else throw err; });
-      if (!data) return;
-      const openP = data.predicted_open ?? data.open_prediction ?? data.open ?? data.Open;
-      const closeP = data.predicted_close ?? data.close_prediction ?? data.close ?? data.Close;
-      
-      // Update Opening Price Prediction
-      document.getElementById('predictedOpenPrice').textContent = openP != null ? `₹${fmt(openP)}` : '--';
-      if (openP != null && state.lastClose != null) {
-        const deltaOpen = openP - state.lastClose;
-        const pctOpen = (deltaOpen / state.lastClose) * 100;
-        const signOpen = deltaOpen >= 0 ? '+' : '';
-        document.getElementById('predictedOpenDelta').textContent = `${signOpen}${fmt(deltaOpen)} (${signOpen}${fmt(pctOpen)}%) from last close`;
+      async function loadEvaluation() {
+        if (state.controllers.eval) state.controllers.eval.abort();
+        const ctrl = new AbortController();
+        state.controllers.eval = ctrl;
+        const data = await fetchJSON("/api/evaluate/", null, ctrl.signal).catch(
+          (err) => {
+            if (err.name === "AbortError") return null;
+            else throw err;
+          }
+        );
+        if (!data) return;
+        const r2o = Number(
+          data.r2_score_open ?? data.r2_open ?? data.r2Open ?? 0
+        );
+        const r2c = Number(
+          data.r2_score_close ?? data.r2_close ?? data.r2Close ?? 0
+        );
+        const pctO = Math.max(0, Math.min(100, r2o * 100));
+        const pctC = Math.max(0, Math.min(100, r2c * 100));
+        document.getElementById("r2OpenPct").textContent = `${fmt(pctO)}%`;
+        document.getElementById("r2ClosePct").textContent = `${fmt(pctC)}%`;
+        document.getElementById("r2OpenBar").style.width = pctO + "%";
+        document.getElementById("r2CloseBar").style.width = pctC + "%";
       }
-      
-      // Update Closing Price Prediction
-      document.getElementById('predictedClosePrice').textContent = closeP != null ? `₹${fmt(closeP)}` : '--';
-      if (closeP != null && state.lastClose != null) {
-        const deltaClose = closeP - state.lastClose;
-        const pctClose = (deltaClose / state.lastClose) * 100;
-        const signClose = deltaClose >= 0 ? '+' : '';
-        document.getElementById('predictedCloseDelta').textContent = `${signClose}${fmt(deltaClose)} (${signClose}${fmt(pctClose)}%) from last close`;
+
+      async function refreshAll() {
+        setActivePeriodPill();
+        updateHeaderMeta();
+        // reset UI to avoid stale data while fetching
+        document.getElementById("predictedOpenPrice").textContent = "--";
+        document.getElementById("predictedOpenDelta").textContent = "--";
+        document.getElementById("predictedClosePrice").textContent = "--";
+        document.getElementById("predictedCloseDelta").textContent = "--";
+        document.getElementById("r2OpenPct").textContent = "--";
+        document.getElementById("r2ClosePct").textContent = "--";
+        document.getElementById("r2OpenBar").style.width = "0%";
+        document.getElementById("r2CloseBar").style.width = "0%";
+        try {
+          await loadChart();
+          await loadPrediction();
+          await loadEvaluation();
+        } catch (e) {
+          /* ignore aborts */
+        }
       }
-    }
+      const debouncedRefresh = debounce(refreshAll, 250);
 
-    async function loadEvaluation() {
-      if (state.controllers.eval) state.controllers.eval.abort();
-      const ctrl = new AbortController();
-      state.controllers.eval = ctrl;
-      const data = await fetchJSON('/api/evaluate/', null, ctrl.signal).catch(err=>{ if (err.name==='AbortError') return null; else throw err; });
-      if (!data) return;
-      const r2o = Number(data.r2_score_open ?? data.r2_open ?? data.r2Open ?? 0);
-      const r2c = Number(data.r2_score_close ?? data.r2_close ?? data.r2Close ?? 0);
-      const pctO = Math.max(0, Math.min(100, r2o * 100));
-      const pctC = Math.max(0, Math.min(100, r2c * 100));
-      document.getElementById('r2OpenPct').textContent = `${fmt(pctO)}%`;
-      document.getElementById('r2ClosePct').textContent = `${fmt(pctC)}%`;
-      document.getElementById('r2OpenBar').style.width = pctO + '%';
-      document.getElementById('r2CloseBar').style.width = pctC + '%';
-    }
+      // Events
+      document.getElementById("periodBar").addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-period]");
+        if (!btn) return;
+        document
+          .querySelectorAll("#periodBar button")
+          .forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        state.period = btn.dataset.period;
+        writeStateToURL();
+        debouncedRefresh();
+      });
+      document
+        .getElementById("btnGenerate")
+        .addEventListener("click", () => loadPrediction());
+      // date picker removed
 
-    async function refreshAll() {
-      setActivePeriodPill();
-      updateHeaderMeta();
-      // reset UI to avoid stale data while fetching
-      document.getElementById('predictedOpenPrice').textContent = '--';
-      document.getElementById('predictedOpenDelta').textContent = '--';
-      document.getElementById('predictedClosePrice').textContent = '--';
-      document.getElementById('predictedCloseDelta').textContent = '--';
-      document.getElementById('r2OpenPct').textContent = '--';
-      document.getElementById('r2ClosePct').textContent = '--';
-      document.getElementById('r2OpenBar').style.width = '0%';
-      document.getElementById('r2CloseBar').style.width = '0%';
-      try {
-        await loadChart();
-        await loadPrediction();
-        await loadEvaluation();
-      } catch (e) { /* ignore aborts */ }
-    }
-    const debouncedRefresh = debounce(refreshAll, 250);
-
-    // Events
-    document.getElementById('periodBar').addEventListener('click', (e) => {
-      const btn = e.target.closest('button[data-period]');
-      if (!btn) return;
-      document.querySelectorAll('#periodBar button').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      state.period = btn.dataset.period;
-      writeStateToURL();
-      debouncedRefresh();
-    });
-    document.getElementById('btnGenerate').addEventListener('click', () => loadPrediction());
-    // date picker removed
-
-    // Init
-    window.addEventListener('DOMContentLoaded', () => {
-      readStateFromURL();
-      setActivePeriodPill();
-      refreshAll();
-    });
-  </script>
-</body>
+      // Init
+      window.addEventListener("DOMContentLoaded", () => {
+        readStateFromURL();
+        setActivePeriodPill();
+        refreshAll();
+      });
+    </script>
+  </body>
 </html>
