@@ -1,102 +1,119 @@
 # views.py
 
-from datetime import datetime, timedelta
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
+import logging
+import yfinance as yf
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-import yfinance as yf
 from .predictor import predict_stock_prices, get_model_evaluation
 
+logger = logging.getLogger(__name__)
+executor = ThreadPoolExecutor(max_workers=3)
 
+
+# ---- Cache Layer ----
+@lru_cache(maxsize=20)
+def get_cached_data(ticker: str, period: str = "1mo"):
+    try:
+        data = yf.download(ticker, period=period, interval="1d", progress=False)
+        return data.reset_index()[["Date", "Close"]]
+    except Exception as e:
+        logger.error(f"Data fetch failed for {ticker}: {e}")
+        return None
+
+
+# ---- APIs ----
 class PredictionAPI(APIView):
     """
-    API to get the next day's predicted stock prices (Open and Close).
-    Accepts a 'ticker' query parameter.
+    Predict next day's open/close prices for a given ticker.
     """
 
-    def get(self, request, *args, **kwargs):
-        ticker = request.query_params.get('ticker', '^NSEI')
-        predictions = predict_stock_prices(ticker=ticker)
-        if "error" in predictions:
+    def get(self, request):
+        ticker = request.query_params.get("ticker", "^NSEI").upper()
+
+        # Predict asynchronously
+        future = executor.submit(predict_stock_prices, ticker)
+        predictions = future.result()
+
+        if not predictions or "error" in predictions:
             return Response(predictions, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # Fetch latest data for current price and change
         try:
-            latest_data = yf.download(ticker, period="2d", interval="1d")
-            if not latest_data.empty and len(latest_data) >= 2:
-                current_price = latest_data['Close'].iloc[-1]
-                previous_price = latest_data['Close'].iloc[-2]
-                change = ((current_price - previous_price) / previous_price) * 100
-                predictions['current_price'] = current_price
-                predictions['change'] = change
+            # Fetch recent 2-day close data
+            data = yf.download(ticker, period="2d", interval="1d", progress=False)
+            if len(data) >= 2:
+                current_price = data["Close"].iloc[-1]
+                prev_price = data["Close"].iloc[-2]
+                predictions.update(
+                    {
+                        "current_price": float(current_price),
+                        "change_percent": round(
+                            ((current_price - prev_price) / prev_price) * 100, 2
+                        ),
+                    }
+                )
         except Exception as e:
-            # If fetching latest data fails, proceed without it
-            print(f"Could not fetch latest data for ticker {ticker}: {e}")
+            logger.warning(f"Failed to fetch current price for {ticker}: {e}")
 
         return Response(predictions, status=status.HTTP_200_OK)
 
 
 class ChartDataAPI(APIView):
     """
-    API to get historical stock data for charting.
-    Accepts a 'period' parameter: 1d, 5d, 1m, 6m, 1y.
+    Return historical stock data for the specified period, including both Open and Close prices.
     """
 
-    def get(self, request, period, *args, **kwargs):
-        ticker = request.query_params.get('ticker', '^NSEI')
-        valid_periods = ["1d", "5d", "1m", "6m", "1y"]
+    VALID_PERIODS = {"1d": "1d", "5d": "5d", "1m": "1mo", "6m": "6mo", "1y": "1y"}
 
-        if period not in valid_periods:
+    def get(self, request, period):
+        ticker = request.query_params.get("ticker", "^NSEI").upper()
+        if period not in self.VALID_PERIODS:
             return Response(
-                {"error": "Invalid period. Choose from: 1d, 5d, 1m, 6m, 1y"},
+                {
+                    "error": f"Invalid period. Use one of: {', '.join(self.VALID_PERIODS.keys())}"
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        # Calculate start and end dates
-        end_date = datetime.now()
 
-        if period.endswith("d"):
-            days = int(period[:-1])
-            start_date = end_date - timedelta(days=days)
-        elif period.endswith("m"):
-            months = int(period[:-1])
-            start_date = end_date - timedelta(days=30 * months)
-        elif period.endswith("y"):
-            years = int(period[:-1])
-            start_date = end_date - timedelta(days=365 * years)
-        else:
+        yf_period = self.VALID_PERIODS[period]
+
+        try:
+            data = yf.download(ticker, period=yf_period, interval="1d", progress=False)
+        except Exception as e:
             return Response(
-                {"error": "Invalid period format"},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"error": f"Failed to fetch data for {ticker}: {e}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-        data = yf.download(
-            ticker,
-            start=start_date.strftime("%Y-%m-%d"),
-            end=end_date.strftime("%Y-%m-%d"),
-            interval="1d"
-        )
 
         if data.empty:
             return Response(
-                {"error": "Could not fetch data for the given period."},
+                {"error": "No data available for the given period."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        # Prepare combined Open and Close dataset
+        # Flatten MultiIndex column names (if any)
         data.columns = [
             col[0] if isinstance(col, tuple) else col for col in data.columns
         ]
 
-        chart_data = data.reset_index()[["Date", "Close"]].to_dict("records")
-        return Response(chart_data, status=status.HTTP_200_OK)
+        # Keep only relevant columns
+        data = data.reset_index()[["Date", "Open", "Close"]]
+        records = data.to_dict("records")
+        return Response(records, status=status.HTTP_200_OK)
 
 
 class ModelEvaluationAPI(APIView):
     """
-    API to get the R-squared scores for the model's performance.
+    Return R² metrics for the ML model performance.
     """
 
-    def get(self, request, *args, **kwargs):
-        ticker = request.query_params.get('ticker', '^NSEI')
+    def get(self, request):
+        ticker = request.query_params.get("ticker", "^NSEI").upper()
         evaluation = get_model_evaluation(ticker=ticker)
-        if "error" in evaluation:
+        if not evaluation or "error" in evaluation:
             return Response(evaluation, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response(evaluation, status=status.HTTP_200_OK)
