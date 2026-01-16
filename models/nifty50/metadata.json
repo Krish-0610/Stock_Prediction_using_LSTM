@@ -1,0 +1,22 @@
+{
+    "ticker": "^NSEI",
+    "time_step": 100,
+    "features": [
+        "Open",
+        "Close",
+        "RSI",
+        "MACD",
+        "MACD_Signal",
+        "EMA_50",
+        "SMA_20",
+        "StochRSI_K",
+        "StochRSI_D"
+    ],
+    "macro_features": [
+        "sp500_ret",
+        "nasdaq_ret",
+        "vix_ret",
+        "crude_ret",
+        "usd_inr_ret"
+    ]
+}
