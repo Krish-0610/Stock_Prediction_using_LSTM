@@ -1,0 +1,40 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment files
+.env
+*.env
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Logs and debug files
+*.log
+*.out
+*.err
+
+# Virtual environment
+venv/
+env/
+
+# Data files
+*.csv
+*.xlsx
+
+# Model files
+*.h5
+*.pkl
+*.joblib
+
+# IDE specific files
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Tests
+test/
