@@ -1,0 +1,35 @@
+{
+  "index": "niftyfmcg",
+  "ticker": "^CNXFMCG",
+  "time_step": 100,
+  "features": [
+    "Close",
+    "High_^CNXFMCG",
+    "Low_^CNXFMCG",
+    "Open",
+    "Volume_^CNXFMCG",
+    "MA100",
+    "MA200",
+    "EMA50",
+    "RSI",
+    "MACD",
+    "MACD_Signal",
+    "STOCH_RSI_K",
+    "STOCH_RSI_D",
+    "sp500_ret_^GSPC",
+    "nasdaq_ret_^IXIC",
+    "vix_ret_^INDIAVIX",
+    "crude_ret_CL=F",
+    "usd_inr_ret_USDINR=X",
+    "fed_policy_flag",
+    "global_crash_flag",
+    "oil_shock_flag",
+    "war_flag",
+    "india_policy_flag"
+  ],
+  "target_cols": [
+    "Close",
+    "Open"
+  ],
+  "trained_on": "2026-01-17 21:14:21.382286"
+}

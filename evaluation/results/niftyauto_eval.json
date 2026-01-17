@@ -1,0 +1,15 @@
+{
+  "index": "niftyauto",
+  "ticker": "^CNXAUTO",
+  "evaluated_on": "2026-01-17 22:31:11.447062",
+  "metrics": {
+    "Close": {
+      "RMSE": 2856.6793,
+      "R2": 0.5478
+    },
+    "Open": {
+      "RMSE": 2866.4198,
+      "R2": 0.5466
+    }
+  }
+}
