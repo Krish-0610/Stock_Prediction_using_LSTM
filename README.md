@@ -1,176 +1,142 @@
 # Stock Price Prediction Using LSTM
+## Overview
+This project implements a **time-series forecasting pipeline** using **Long Short-Term Memory (LSTM)** neural networks to predict **next-day Open and Close prices** of stock indices.  
+The system is designed as an **academic and experimental framework**, focusing on how historical price data, technical indicators, and macro-level signals can be combined for sequential prediction.
 
-A deep learning project that employs **Long Short-Term Memory (LSTM)** neural networks to predict stock market prices from historical data. The implementation utilizes **stacked LSTM layers** to learn temporal dependencies and forecast future prices with improved accuracy.
+The goal is **modeling and analysis**, not trading or profit generation.
 
----
+## Problem Statement
+Traditional stock prediction models rely only on historical prices: `P(t−n) … P(t) → P(t+1)` such models mostly learn **price mapping**, not market reaction.
 
-## **About the Project**
+This project extends the formulation to: `[Historical Prices + Technical Indicators + Macro Signals] → P(t+1)`
+The intent is to make the model **macro-aware**, so that large overnight or global shocks can influence predictions.
 
-This project implements a stock price prediction pipeline using **LSTM (Long Short-Term Memory)** networks — a variant of **Recurrent Neural Networks (RNNs)** built to handle sequential data and long-term dependencies.  
-The model studies historical stock price movements to forecast future trends, aiming to assist in data-driven investment analysis.
+## Project Structure
+```bash
+Stock_Prediction_using_LSTM/
+├── app
+│   └── streamlit_app.py      # Streamlit dashboard entry point
+│
+├── data
+│   ├── flag                  # Event markers (FOMC, Macro events)
+│   ├── news                  # Raw sentiment/news data
+│   └── processed             # Cleaned datasets ready for training
+│
+├── features                  # Feature Engineering logic
+│   ├── flags.py              # Event boolean logic
+│   ├── macro_features.py     # Macroeconomic factors
+│   └── technical_indicators.py
+│
+├── interface                 # Inference/Prediction logic
+│   ├── predict.py            # Inference pipeline
+│   └── predict_config.py     # Inference configurations
+│
+├── models                    # Serialized models & artifacts
+│   ├── banknifty             # Index-specific artifacts
+│   │   ├── model.keras       # Trained Model
+│   │   ├── metadata.json     # Hyperparams & threshold data
+│   │   └── *.gz              # Scalers (Input/Target)
+│   ├── nifty50
+│   └── [niftyauto, niftyfmcg, niftyit, niftymetal]
+│
+├── training                  # Training Pipeline
+│   ├── config.py             # Hyperparameters & paths
+│   ├── model.py              # Architecture definition
+│   ├── prepare_data.py       # Preprocessing scripts
+│   └── train_model.py        # Training loop execution
+│
+└── utils
+    └── flatten.py            # Utility scripts
 
-> **Disclaimer:** This project is for educational and research purposes only. It does **not** provide financial advice or investment recommendations.
+```
 
----
+## Data Sources
+- **Historical market data**: Yahoo Finance (`yfinance`)
+- **Price data**:
+    - Open
+    - High
+    - Low
+    - Close
+    - Volume
+- **Global and macro proxies** (used selectively depending on index):
+    - S&P 500
+    - NASDAQ
+    - Dow Jones
+    - USD/INR
+    - Crude Oil
+    - India VIX
+## Feature Engineering
+### 1. Price-Based features
+- Raw OHLC prices
+- Log returns
+- Moving Averages
+### 2. Technical Indicators
+- SMA (20, 100, 200)
+- EMA
+- RSI
+- MACD
+- Stochastic RSI
+### 3. Macro / Proxy Features
+Used to approximate **market reaction**, not sentiment:
+- Global index returns
+- Volatility index (VIX)
+- Currency movement
+- Commodity prices
+### 4. Binary Event Flags (Experimental)
+High-signal, low-noise indicators:
+- Fed policy event
+- Global market crash
+- Oil shock
+- Geopolitical stress
+Flags are attached **only to the next trading day** to avoid leakage.
+## Data Preprocessing Pipeline
+1. Missing value handling
+2. Feature alignment by date
+3. Scaling using `MinMaxScaler`
+4. Sliding window sequence creation:
+    `lookback window → next-day prediction`
+5. Train / validation split (time-aware)
+## Model Architecture
+### Core Model
+- Stacked LSTM layers
+- Dropout for regularization
+- Dense output layer
+## Training
+- Loss function: Mean Squared Error (MSE)
+- Optimizer: Adam
+- Sequence length: configurable
+- Training is performed using both notebooks and script pipelines
+## Evaluation Metrics
+- Mean Squared Error (MSE)
+- Root Mean Squared Error (RMSE)
+- Directional Accuracy (up/down correctness)
+- Visual comparison of predicted vs actual prices
+Metrics are interpreted cautiously due to the stochastic nature of markets.
 
-## **Features**
-
-- **Time Series Forecasting** – Predicts future stock prices using historical patterns.  
-- **Stacked LSTM Architecture** – Multiple LSTM layers for improved feature learning.  
-- **Data Visualization** – Interactive plots comparing predicted and actual prices.  
-- **Live Data Integration** – Fetches real-time data via **Yahoo Finance API**.  
-- **Preprocessing Pipeline** – Normalization using **MinMaxScaler** for stable convergence.  
-- **Comprehensive Evaluation** – Metrics include **MSE**, **RMSE**, **MAE**, and **MAPE**.
-
----
-
-## **Technologies Used**
-
-- **Python 3.x**
-- **TensorFlow / Keras**
-- **NumPy**, **Pandas**
-- **Matplotlib / Seaborn**
-- **Scikit-learn**
-- **yfinance**
-- **Jupyter Notebook**
-
----
-
-## **Installation**
-
-1. **Clone the Repository**
-   ```bash
-   git clone https://github.com/your-username/Stock_Prediction_using_LSTM.git
-   cd Stock_Prediction_using_LSTM
-   ```
-
-2. **Create a Virtual Environment** (recommended)
-   ```bash
-   python -m venv venv
-   source venv/bin/activate      # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install Dependencies**
-   ```bash
-   pip install numpy pandas matplotlib seaborn scikit-learn tensorflow yfinance jupyter
-   ```
-
-4. **Launch Jupyter Notebook**
-   ```bash
-   jupyter notebook
-   ```
-
----
-
-## **Usage**
-
-1. **Data Collection** – Fetch historical stock data (e.g., past 200 days) using `yfinance`.  
-2. **Data Preprocessing** – Normalize the data with `MinMaxScaler` and create input sequences.  
-3. **Model Selection** –  
-   - `Model_v0.keras` → Basic prediction model.  
-   - `Model_v1.keras` → Advanced feature model.  
-   - `Model_v2.keras` → NIFTY50-focused model with futures data.  
-4. **Prediction** – Use `Resources/Models/Prediction.ipynb` for prediction workflow.
-
-> Each model expects specific input features. Refer to the corresponding notebook for details.
-
----
-
-## **Model Overview**
-
-| Model | Description |
-|--------|--------------|
-| **Model_v0** | Basic LSTM model using 100MA and 200MA as input features. |
-| **Model_v1** | Stacked LSTM model with 100MA, 200MA, RSI, MACD, EMA50, SMA20, and Stochastic RSI. |
-| **Model_v2** | Extended LSTM model for **NIFTY50**, adding GiftNifty (NIFTY50 futures) as a new feature. |
-
----
-
-## **Dataset**
-
-Data sourced from **Yahoo Finance**, containing:
-
-- Open, High, Low, Close Prices  
-- Volume (number of shares traded)
-
-All features are scaled between 0 and 1 using **MinMaxScaler** for effective LSTM training.
-
----
-
-## **Model Performance**
-
-### **Model_v0**
-
-| Metric | Value |
-|---------|--------|
-| **MSE** | 32868.7918 |
-| **RMSE** | 181.2975 |
-| **R-Squared** | 0.9956 |
-
----
-
-### **Model_v1**
-
-| Metric | **Value (Open Price)** | **Value (Close Price)** |
-|---------|------------------------|--------------------------|
-| **MSE** | 0.0011 | 0.0017 |
-| **RMSE** | 0.0329 | 0.0417 |
-| **R-Squared** | 0.9802 | 0.9686 |
-
----
-
-### **Model_v2**
-
-| Metric | **Value (Open Price)** | **Value (Close Price)** |
-|---------|------------------------|--------------------------|
-| **MSE** | 0.0019 | 0.0020 |
-| **RMSE** | 0.0431 | 0.0443 |
-| **R-Squared** | 0.9558 | 0.9518 |
-
----
-
-### **Performance Summary**
-
-- **Model_v0** achieves high R² but operates on unscaled data, leading to large MSE/RMSE.  
-- **Model_v1** and **Model_v2** utilize normalized inputs, achieving lower error values.  
-- **Model_v1** provides the best generalization balance for both open and close price predictions.
-
----
-
-## **Contributing**
-
-Contributions are encouraged.  
-Follow standard GitHub workflow:
-
-1. Fork the repository.  
-2. Create a feature branch:  
-   ```bash
-   git checkout -b feature/AmazingFeature
-   ```
-3. Commit your changes:  
-   ```bash
-   git commit -m "Add some AmazingFeature"
-   ```
-4. Push to your branch and open a Pull Request.
-
----
-
-## **Contributors**
-
-- **Krish Patel** – [@Krish-0610](https://github.com/Krish-0610)  
-- **Banti Kushwaha** – [@Bantikushwaha](https://github.com/Bantikushwaha)
-
----
-
-## **Acknowledgments**
-
-- **Yahoo Finance API** for open access to financial data.  
-- **TensorFlow/Keras** community for robust deep learning tools.  
-- Research literature and open-source projects that inspired this implementation.
-
-
-
----
-
-> **Note:** Past performance is not indicative of future results. Always perform independent research before making financial decisions.
-
+## Prediction Pipeline
+1. Load trained model and scaler
+2. Fetch latest available market data
+3. Recompute required features
+4. Generate last sequence window
+5. Predict:
+    - Next-day Open
+    - Next-day Close
+6. Inverse scale predictions
+## Key Design Decisions
+- **No future data leakage**
+- **Macro signals treated as context, not truth**
+- **Prediction ≠ trading strategy**
+- Focus on **explainability and structure** rather than accuracy claims
+## Limitations
+- Market efficiency limits predictability
+- Macro features are proxies, not causal signals 
+- Binary event flags are heuristic-based
+- Not suitable for real-world trading without risk management
+## Future Work
+- Regime-aware models (bull/bear detection)
+- Attention-based architectures
+- Probabilistic forecasting instead of point prediction
+- Better evaluation under stress events
+## Disclaimer
+This project is strictly for **educational and research purposes**.  
+It does **not** provide financial advice or trading recommendations.
