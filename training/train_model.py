@@ -11,18 +11,7 @@ from features.flags import build_flag_dataframe
 from training.prepare_data import prepare_data
 from training.model import build_model_v1
 
-from training.config import (
-    LOOKBACK,
-    EPOCHS,
-    BATCH_SIZE,
-    TARGET_COLS,
-    BASE_MODEL_DIR,
-    MODEL_FILENAME,
-    SCALER_FILENAME,
-    METADATA_FILENAME,
-    INDEX_CONFIG,
-    get_train_window
-)
+from .config import *
 
 
 def train_index(index_name: str, ticker: str):
@@ -31,7 +20,7 @@ def train_index(index_name: str, ticker: str):
     os.makedirs(f"{BASE_MODEL_DIR}/{index_name}", exist_ok=True)
 
     # 1. Fetch price data
-    start , end = get_train_window()
+    start, end = get_train_window()
     price_df = yf.download(ticker, start=start, end=end)
     assert not price_df.empty, "Price data empty"
 
@@ -53,19 +42,13 @@ def train_index(index_name: str, ticker: str):
     df = price_df.join([macro_df, flag_df])
     df.dropna(inplace=True)
 
-    df = df.rename(columns={
-        f"Open_{ticker}": "Open",
-        f"Close_{ticker}": "Close"
-    })
+    df = df.rename(columns={f"Open_{ticker}": "Open", f"Close_{ticker}": "Close"})
 
     features = df.columns.tolist()
 
     # 6. Prepare sequences
-    X_train, y_train, X_test, y_test, target_scaler = prepare_data(
-        df,
-        features=features,
-        target_cols=TARGET_COLS,
-        time_step=LOOKBACK
+    X_train, y_train, X_test, y_test, input_scaler, target_scaler = prepare_data(
+        df, features=features, target_cols=TARGET_COLS, time_step=LOOKBACK
     )
 
     # 7. Build + train model
@@ -77,29 +60,29 @@ def train_index(index_name: str, ticker: str):
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         validation_split=0.1,
-        verbose=1
+        verbose=1,
     )
 
     # 8. Save artifacts
     model.save(f"{BASE_MODEL_DIR}/{index_name}/{MODEL_FILENAME}")
-    joblib.dump(
-        target_scaler,
-        f"{BASE_MODEL_DIR}/{index_name}/{SCALER_FILENAME}"
-    )
-
+    joblib.dump(input_scaler, f"{BASE_MODEL_DIR}/{index_name}/{INPUT_SCALER_FILENAME}")
+    joblib.dump(target_scaler, f"{BASE_MODEL_DIR}/{index_name}/{TARGET_SCALER_FILENAME}")
     metadata = {
         "index": index_name,
         "ticker": ticker,
         "time_step": LOOKBACK,
         "features": features,
         "target_cols": TARGET_COLS,
-        "trained_on": str(datetime.now())
+        "trained_on": str(datetime.now()),
+        "input_scaler_MIN": str(input_scaler.data_min_),
+        "target_scaler_MAX": str(target_scaler.data_max_)
     }
 
     with open(f"{BASE_MODEL_DIR}/{index_name}/{METADATA_FILENAME}", "w") as f:
         json.dump(metadata, f, indent=2)
 
     print(f"Saved model for {index_name}")
+
 
 # ================= ENTRY =================
 

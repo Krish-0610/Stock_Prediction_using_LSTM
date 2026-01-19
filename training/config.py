@@ -18,11 +18,12 @@ BATCH_SIZE = 32
 LEARNING_RATE = 0.001
 
 # ---------- TARGET ----------
-TARGET_COLS = ["Close", "Open"]
+TARGET_COLS = ["y_close", "y_open"]
 
 # ---------- DIRECTORIES ----------
 BASE_MODEL_DIR = os.path.join(PROJECT_DIR, "models")
-SCALER_FILENAME = "target_scaler.gz"
+TARGET_SCALER_FILENAME = "target_scaler.gz"
+INPUT_SCALER_FILENAME = "input_scaler.gz"
 MODEL_FILENAME = "model.keras"
 METADATA_FILENAME = "metadata.json"
 

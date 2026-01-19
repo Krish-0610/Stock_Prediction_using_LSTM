@@ -8,7 +8,8 @@ TARGET_COLS = ["Close", "Open"]
 
 BASE_MODEL_DIR = os.path.join(PROJECT_DIR, "models")
 MODEL_FILENAME = "model.keras"
-SCALER_FILENAME = "target_scaler.gz"
+TARGET_SCALER_FILENAME = "target_scaler.gz"
+INPUT_SCALER_FILENAME = "input_scaler.gz"
 METADATA_FILENAME = "metadata.json"
 
 INDEX_CONFIG = {

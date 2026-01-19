@@ -1,27 +1,11 @@
 import os
-import sys
 import json
 import joblib
 import yfinance as yf
 import numpy as np
 import pandas as pd
 from keras.models import load_model
-from datetime import datetime, timedelta
-from predict_config import (
-    INDEX_CONFIG,
-    LOOKBACK,
-    TARGET_COLS,
-    BASE_MODEL_DIR,
-    MODEL_FILENAME,
-    SCALER_FILENAME,
-    METADATA_FILENAME,
-    RETURN_INVERSE_SCALE,
-    get_fetch_window,
-)
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
+from .predict_config import *
 
 from features.technical_indicators import add_technical_indicators
 from features.macro_features import get_macro_features
@@ -33,12 +17,13 @@ def load_artifacts(index_name):
     model_dir = os.path.join(BASE_MODEL_DIR, index_name)
 
     model = load_model(os.path.join(model_dir, MODEL_FILENAME))
-    target_scaler = joblib.load(os.path.join(model_dir, SCALER_FILENAME))
+    target_scaler = joblib.load(os.path.join(model_dir, TARGET_SCALER_FILENAME))
+    input_scaler = joblib.load(os.path.join(model_dir, INPUT_SCALER_FILENAME))
 
     with open(os.path.join(model_dir, METADATA_FILENAME), "r") as f:
         metadata = json.load(f)
 
-    return model, target_scaler, metadata["features"]
+    return model, input_scaler, target_scaler, metadata["features"]
 
 
 def build_features(ticker, start, end):
@@ -74,39 +59,57 @@ def build_features(ticker, start, end):
 
 
 def predict_next_day(index_name):
+    # ---------- Validate index ----------
     if index_name not in INDEX_CONFIG:
         raise ValueError(f"Unknown index: {index_name}")
 
     ticker = INDEX_CONFIG[index_name]["ticker"]
 
-    # Load model + metadata
-    model, target_scaler, feature_order = load_artifacts(index_name)
+    # ---------- Load artifacts ----------
+    model, input_scaler, target_scaler, feature_order = load_artifacts(index_name)
 
-    print(f"\n\n {index_name}, {target_scaler.data_min_}, {target_scaler.data_max_}")
-
-
-    # Fetch data
+    # ---------- Fetch & build features ----------
     start, end = get_fetch_window()
     df = build_features(ticker, start, end)
-    print(df)
-    if len(df) < LOOKBACK:
-        print(len(df))
-        raise RuntimeError("Not enough data for lookback window")
 
-    # Enforce training feature order
+    if df.empty:
+        raise RuntimeError("Feature dataframe is empty")
+
+    if len(df) < LOOKBACK:
+        raise RuntimeError(
+            f"Not enough rows for prediction: have {len(df)}, need {LOOKBACK}"
+        )
+
+    # ---------- Enforce exact training feature order ----------
+    missing = set(feature_order) - set(df.columns)
+    if missing:
+        raise RuntimeError(f"Missing features at inference: {missing}")
+    last_close = df["Close"].iloc[-1]
     df = df[feature_order]
 
-    # Build model input
-    X = df.iloc[-LOOKBACK:].values
+    # ---------- Scale inputs ----------
+    X_raw = df.values  # shape: (N, n_features)
+    X_scaled = input_scaler.transform(X_raw)  # numpy array
+
+    # Take last LOOKBACK window
+    X = X_scaled[-LOOKBACK:]
     X = X.reshape(1, LOOKBACK, X.shape[1])
 
-    # Predict
-    y_pred = model.predict(X)
+    # ---------- Sanity (non-fatal) ----------
+    if not np.isfinite(X).all():
+        raise RuntimeError("NaN or Inf detected in model input")
 
+    # ---------- Predict ----------
+    y_scaled = model.predict(X, verbose=0)
+
+    # ---------- Inverse scale targets ----------
     if RETURN_INVERSE_SCALE:
-        y_pred = target_scaler.inverse_transform(y_pred)
+        y_log = target_scaler.inverse_transform(y_scaled)
 
-    return dict(zip(TARGET_COLS, y_pred.flatten().tolist()))
+        pred_close = last_close * np.exp(y_log[0, 0])
+        pred_open = last_close * np.exp(y_log[0, 1])
+
+    return {"Close": pred_close.item(), "Open": pred_open.item()}
 
 
 if __name__ == "__main__":
