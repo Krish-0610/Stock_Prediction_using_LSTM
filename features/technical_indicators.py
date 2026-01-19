@@ -42,5 +42,4 @@ def add_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
     df["MACD"], df["MACD_Signal"] = calculate_macd(df["Close"])
     df["STOCH_RSI_K"], df["STOCH_RSI_D"] = calculate_stoch_rsi(df["Close"])
 
-    df.dropna(inplace=True)
     return df

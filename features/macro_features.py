@@ -20,6 +20,5 @@ def get_macro_features(start, end):
 
     macro_df = pd.concat(dfs, axis=1)
     macro_df = macro_df.shift(1)     # attach overnight info
-    macro_df.dropna(inplace=True)
 
     return macro_df

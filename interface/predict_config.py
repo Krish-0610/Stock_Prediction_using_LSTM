@@ -1,41 +1,30 @@
 import os
-
-# =========================
-# PREDICTION CONFIG
-# =========================
+from datetime import datetime, timedelta
 
 PROJECT_DIR = os.path.join(os.path.dirname(__file__), "..")
 
-# ---------- MODEL INPUT ----------
-LOOKBACK = 100        # must match training
+LOOKBACK = 100
 TARGET_COLS = ["Close", "Open"]
 
-# ---------- DIRECTORIES ----------
 BASE_MODEL_DIR = os.path.join(PROJECT_DIR, "models")
 MODEL_FILENAME = "model.keras"
 SCALER_FILENAME = "target_scaler.gz"
 METADATA_FILENAME = "metadata.json"
 
-# ---------- INDICES ----------
 INDEX_CONFIG = {
-    "nifty50": {
-        "ticker": "^NSEI",
-        "display_name": "NIFTY 50"
-    },
-    "banknifty": {
-        "ticker": "^NSEBANK",
-        "display_name": "BANK NIFTY"
-    },
-    "niftyit": {
-        "ticker": "^CNXIT",
-        "display_name": "NIFTY IT"
-    }
+    "nifty50": {"ticker": "^NSEI"},
+    "banknifty": {"ticker": "^NSEBANK"},
+    "niftyit": {"ticker": "^CNXIT"},
+    "niftyauto": {"ticker": "^CNXAUTO"},
+    "niftymetal": {"ticker": "^CNXMETAL"},
+    "niftyfmcg": {"ticker": "^CNXFMCG"},
 }
 
-# ---------- DATA FETCH ----------
-FETCH_DAYS = 180      # must be > LOOKBACK
-INTERVAL = "1d"
+FETCH_DAYS = 500
 
-# ---------- INFERENCE ----------
-PREDICT_STEPS = 1     # next trading day
 RETURN_INVERSE_SCALE = True
+
+def get_fetch_window():
+    end = datetime.now()
+    start = end - timedelta(days=FETCH_DAYS)
+    return start, end

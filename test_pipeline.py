@@ -1,7 +1,7 @@
 import yfinance as yf
 import pandas as pd
 from tensorflow import keras
-from training.utils import flatten_columns
+from utils.flatten import flatten_columns
 from features.technical_indicators import add_technical_indicators
 from features.macro_features import get_macro_features
 from features.flags import build_flag_dataframe
@@ -73,5 +73,3 @@ y_pred = m.predict(X_test[:5])
 print(y_pred.shape)
 
 print("PIPELINE TEST PASSED")
-
-df.to_csv("data.csv", index=False)  # TODO: Change name to ticker index
