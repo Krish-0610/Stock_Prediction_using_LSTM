@@ -11,7 +11,7 @@ parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
-from interface.predict import predict_next
+from interface.predict import predict_next_day
 from interface.predict_config import BASE_MODEL_DIR, METADATA_FILENAME
 
 # =========================
@@ -179,7 +179,7 @@ with col2:
         with st.spinner(f"Analyzing {selected_name} and generating prediction..."):
             try:
                 # Make prediction
-                result = predict_next(selected_index)
+                result = predict_next_day(selected_index)
                 
                 # Store in session state
                 st.session_state['last_prediction'] = result
