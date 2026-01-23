@@ -5,7 +5,7 @@ import yfinance as yf
 import numpy as np
 import pandas as pd
 from keras.models import load_model
-from .predict_config import *
+from interface.predict_config import *
 
 from features.technical_indicators import add_technical_indicators
 from features.macro_features import get_macro_features

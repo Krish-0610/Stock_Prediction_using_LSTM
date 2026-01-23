@@ -1,4 +1,5 @@
 import os
+import pandas as pd
 from datetime import datetime, timedelta
 
 PROJECT_DIR = os.path.join(os.path.dirname(__file__), "..")
@@ -18,14 +19,25 @@ INDEX_CONFIG = {
     "niftyit": {"ticker": "^CNXIT"},
     "niftyauto": {"ticker": "^CNXAUTO"},
     "niftymetal": {"ticker": "^CNXMETAL"},
-    "niftyfmcg": {"ticker": "^CNXFMCG"},
 }
 
 FETCH_DAYS = 500
 
 RETURN_INVERSE_SCALE = True
 
+
 def get_fetch_window():
-    end = datetime.now()
-    start = end - timedelta(days=FETCH_DAYS)
+    now = pd.Timestamp.now(tz="Asia/Kolkata")
+    market_close = now.normalize() + pd.Timedelta(hours=15, minutes=30)
+
+    if now < market_close:
+        data_cutoff = now.normalize() - pd.Timedelta(days=1)
+        prediction_day = now.normalize()  # today
+    else:
+    # Market CLOSED
+        data_cutoff = now.normalize()
+        prediction_day = now.normalize() + pd.Timedelta(days=1)
+
+    end = data_cutoff + pd.Timedelta(days=1)
+    start = end - pd.Timedelta(days=FETCH_DAYS)
     return start, end

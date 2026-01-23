@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stock_prediction"
+version = "0.1"
+
+[tool.setuptools]
+packages = ["features", "interface", "models", "utils"]

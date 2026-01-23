@@ -34,4 +34,22 @@ env/
 Thumbs.db
 
 # Tests
-test/
+# Additional OS generated files
+*.swp
+*.swo
+*.bak
+
+# Temporary files
+*.tmp
+*.temp.*
+
+# Coverage reports
+.coverage
+coverage.xml
+htmlcov/
+
+# Build files
+build/
+dist/
+*.egg-info/
+
